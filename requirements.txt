@@ -1,0 +1,10 @@
+streamlit>=1.40
+streamlit-option-menu>=0.4.0
+pandas>=2.0
+numpy>=1.24
+seaborn>=0.13
+matplotlib>=3.7
+scikit-learn>=1.3
+openpyxl>=3.1
+supabase>=2.8
+pytest>=8.0

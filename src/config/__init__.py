@@ -1,0 +1,3 @@
+from src.config.settings import APP_LAYOUT, APP_PAGE_TITLE, NAVIGATION_ITEMS
+
+__all__ = ["APP_LAYOUT", "APP_PAGE_TITLE", "NAVIGATION_ITEMS"]

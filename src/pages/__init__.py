@@ -1,0 +1,15 @@
+from src.pages.eda import render as render_eda_page
+from src.pages.modeling import render as render_modeling_page
+from src.pages.pipeline import render as render_pipeline_page
+from src.pages.regression import render as render_regression_page
+from src.pages.upload import render as render_upload_page
+
+PAGE_RENDERERS = {
+    "upload": render_upload_page,
+    "pipeline": render_pipeline_page,
+    "eda": render_eda_page,
+    "regression": render_regression_page,
+    "modeling": render_modeling_page,
+}
+
+__all__ = ["PAGE_RENDERERS"]
