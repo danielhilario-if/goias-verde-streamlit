@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-APP_PAGE_TITLE = "Carbono - Fluxo do Solo"
+APP_PAGE_TITLE = "Goiás Verde - Fluxo do Solo"
 APP_LAYOUT = "wide"
-APP_SIDEBAR_TITLE = "Projeto Carbono"
+APP_SIDEBAR_TITLE = "Projeto Goiás Verde"
 PRIMARY_COLOR = "#0f766e"
 AUTH_VALIDATION_TTL_SECONDS = 300
 

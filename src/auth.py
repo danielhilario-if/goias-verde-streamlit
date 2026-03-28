@@ -281,7 +281,7 @@ def logout():
 def render_login_gate():
     config = get_auth_config()
 
-    st.title("Projeto Carbono")
+    st.title("Projeto Goiás Verde")
     st.caption("Faça login para acessar o produto Streamlit.")
 
     if not config.url or not config.client_key:
