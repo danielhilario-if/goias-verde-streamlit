@@ -5,6 +5,7 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
+from src.i18n import t
 from src.state import get_active_dataframe, get_raw_dataframe
 
 
@@ -16,5 +17,5 @@ def ensure_raw_dataframe(warning_message: str) -> Optional[pd.DataFrame]:
 
 
 def render_dataset_source_toggle(toggle_key: str, default: bool = True) -> Optional[pd.DataFrame]:
-    use_processed = st.toggle("Usar dados processados", value=default, key=toggle_key)
+    use_processed = st.toggle(t("dataset.use_processed"), value=default, key=toggle_key)
     return get_active_dataframe(use_processed)

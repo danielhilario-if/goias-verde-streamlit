@@ -6,12 +6,13 @@ import streamlit as st
 from src.auth import (
     get_authenticated_email,
     get_authenticated_user,
-    get_user_role_label,
+    get_user_role_key,
     is_auth_enabled,
     render_login_gate,
 )
 from src.components.sidebar import render_sidebar
 from src.config.settings import APP_LAYOUT, APP_PAGE_TITLE
+from src.i18n import t
 from src.pages import PAGE_RENDERERS
 
 st.set_page_config(page_title=APP_PAGE_TITLE, layout=APP_LAYOUT)
@@ -28,7 +29,7 @@ def main():
 
     selected_page = render_sidebar(
         user_email=get_authenticated_email(auth_user),
-        user_role=get_user_role_label(auth_user) if auth_enabled else None,
+        user_role_key=get_user_role_key(auth_user) if auth_enabled else None,
         auth_enabled=auth_enabled,
     )
     PAGE_RENDERERS[selected_page]()

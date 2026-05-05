@@ -1,19 +1,22 @@
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 import streamlit as st
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 
 from src.components.dataset_controls import ensure_raw_dataframe, render_dataset_source_toggle
 from src.config.settings import MODEL_DEFAULT_FEATURES
+from src.i18n import t
 from src.ml import DEFAULT_MODEL_KEYS, MODEL_REGISTRY, build_model_pipeline, extract_feature_importance
 
 
 def render():
-    st.subheader("Modelagem")
+    st.subheader(t("modeling.title"))
 
-    df_raw = ensure_raw_dataframe("Carregue um arquivo na aba Upload.")
+    df_raw = ensure_raw_dataframe(t("modeling.warn_no_data"))
     if df_raw is None:
         return
 
@@ -25,36 +28,36 @@ def render():
     all_columns = list(df.columns)
 
     if len(numeric_cols) < 2:
-        st.warning("Sao necessarias colunas numericas suficientes para modelagem.")
+        st.warning(t("modeling.warn_min_numeric"))
         return
 
     default_target = "FCO2_DRY" if "FCO2_DRY" in all_columns else numeric_cols[0]
-    target = st.selectbox("Variavel alvo", options=numeric_cols, index=numeric_cols.index(default_target))
+    target = st.selectbox(t("modeling.target"), options=numeric_cols, index=numeric_cols.index(default_target))
 
     default_features = [column for column in MODEL_DEFAULT_FEATURES if column in all_columns and column != target]
-    features = st.multiselect("Features", options=[column for column in all_columns if column != target], default=default_features)
+    features = st.multiselect(t("modeling.features"), options=[column for column in all_columns if column != target], default=default_features)
 
     if not features:
-        st.warning("Selecione ao menos uma feature.")
+        st.warning(t("modeling.warn_min_feature"))
         return
 
     selected_models = st.multiselect(
-        "Modelos para comparar",
+        t("modeling.models"),
         options=list(MODEL_REGISTRY.keys()),
         default=DEFAULT_MODEL_KEYS,
         format_func=lambda model_key: MODEL_REGISTRY[model_key].label,
     )
     if not selected_models:
-        st.warning("Selecione ao menos um modelo para comparação.")
+        st.warning(t("modeling.warn_min_model"))
         return
 
     c1, c2 = st.columns(2)
-    test_size = c1.slider("Tamanho do holdout", 0.10, 0.40, 0.30, 0.05)
-    cv_folds = c2.slider("Dobras da validacao cruzada", 3, 10, 5, 1)
+    test_size = c1.slider(t("modeling.holdout"), 0.10, 0.40, 0.30, 0.05)
+    cv_folds = c2.slider(t("modeling.cv_folds"), 3, 10, 5, 1)
 
     df_model = df.dropna(subset=features + [target]).copy()
     if len(df_model) < 30:
-        st.warning("Poucos dados apos filtros para treinar modelo (<30 linhas).")
+        st.warning(t("modeling.warn_too_few_rows"))
         return
 
     X = df_model[features]
@@ -69,7 +72,8 @@ def render():
     cv = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
 
     results = []
-    model_details = {}
+    model_details: dict[str, pd.DataFrame] = {}
+    holdout_predictions: dict[str, pd.DataFrame] = {}
     failures = []
 
     for model_key in selected_models:
@@ -81,43 +85,81 @@ def render():
             predictions = pipeline.predict(X_test)
             cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2")
         except Exception as exc:
-            failures.append(f"{model_def.label}: {exc}")
+            failures.append(t("modeling.warn_train_failed", error=f"{model_def.label}: {exc}"))
             continue
 
         results.append(
             {
-                "Modelo": model_def.label,
-                "R2 Holdout": r2_score(y_test, predictions),
-                "MAE Holdout": mean_absolute_error(y_test, predictions),
-                "RMSE Holdout": mean_squared_error(y_test, predictions) ** 0.5,
-                "CV R2 media": cv_scores.mean(),
-                "CV R2 desvio": cv_scores.std(),
+                t("modeling.col.model"): model_def.label,
+                t("modeling.col.r2_holdout"): r2_score(y_test, predictions),
+                t("modeling.col.mae_holdout"): mean_absolute_error(y_test, predictions),
+                t("modeling.col.rmse_holdout"): mean_squared_error(y_test, predictions) ** 0.5,
+                t("modeling.col.cv_mean"): cv_scores.mean(),
+                t("modeling.col.cv_std"): cv_scores.std(),
             }
         )
+
+        holdout_predictions[model_def.label] = pd.DataFrame({"observed": y_test.to_numpy(), "predicted": predictions})
 
         feature_importance = extract_feature_importance(pipeline)
         if feature_importance is not None and not feature_importance.empty:
             model_details[model_def.label] = feature_importance.head(15)
 
-    if failures:
-        for failure in failures:
-            st.warning(f"Falha ao treinar modelo: {failure}")
+    for failure in failures:
+        st.warning(failure)
 
     if not results:
-        st.error("Nenhum modelo foi treinado com sucesso.")
+        st.error(t("modeling.error_no_models"))
         return
 
-    results_df = pd.DataFrame(results).sort_values("CV R2 media", ascending=False)
+    results_df = pd.DataFrame(results).sort_values(t("modeling.col.cv_mean"), ascending=False)
     st.dataframe(results_df, width="stretch")
 
-    best_model = results_df.iloc[0]
+    best_row = results_df.iloc[0]
     c1, c2 = st.columns(2)
-    c1.metric("Melhor CV R2", f"{best_model['CV R2 media']:.4f}")
-    c1.caption(best_model["Modelo"])
-    c2.metric("Melhor R2 Holdout", f"{best_model['R2 Holdout']:.4f}")
-    c2.caption(best_model["Modelo"])
+    c1.metric(t("modeling.metric.best_cv"), f"{best_row[t('modeling.col.cv_mean')]:.4f}")
+    c1.caption(best_row[t("modeling.col.model")])
+    c2.metric(t("modeling.metric.best_holdout"), f"{best_row[t('modeling.col.r2_holdout')]:.4f}")
+    c2.caption(best_row[t("modeling.col.model")])
 
+    # ---------------- Predicted vs. observed ----------------
+    if holdout_predictions:
+        st.markdown(f"#### {t('modeling.predicted_title')}")
+        models_for_pred = list(holdout_predictions.keys())
+        chosen = st.selectbox(t("modeling.predicted_select"), options=models_for_pred, key="modeling_pred_select")
+        pred_df = holdout_predictions[chosen]
+
+        fig_pred, ax_pred = plt.subplots(figsize=(6, 6))
+        ax_pred.scatter(pred_df["observed"], pred_df["predicted"], alpha=0.6, s=24, color="#0f766e")
+        lim_min = min(pred_df["observed"].min(), pred_df["predicted"].min())
+        lim_max = max(pred_df["observed"].max(), pred_df["predicted"].max())
+        ax_pred.plot([lim_min, lim_max], [lim_min, lim_max], linestyle="--", color="#b91c1c", linewidth=1.5)
+        ax_pred.set_xlabel("observed")
+        ax_pred.set_ylabel("predicted")
+        ax_pred.set_title(chosen)
+        st.pyplot(fig_pred)
+        plt.close(fig_pred)
+        st.caption(t("modeling.predicted_caption"))
+
+    # ---------------- Feature importance bar chart ----------------
     if model_details:
-        st.markdown("#### Importancias / coeficientes")
-        detail_model = st.selectbox("Modelo para inspecionar", options=list(model_details.keys()))
-        st.dataframe(model_details[detail_model], width="stretch")
+        st.markdown(f"#### {t('modeling.importance_title')}")
+        detail_model = st.selectbox(t("modeling.importance_select"), options=list(model_details.keys()))
+        importance_df = model_details[detail_model]
+        st.dataframe(importance_df, width="stretch")
+
+        fig_imp, ax_imp = plt.subplots(figsize=(8, max(3, 0.35 * len(importance_df))))
+        sns.barplot(
+            data=importance_df,
+            x="importance",
+            y="feature",
+            hue="feature",
+            legend=False,
+            palette="crest",
+            ax=ax_imp,
+        )
+        ax_imp.set_title(t("modeling.importance_chart_title", n=len(importance_df)))
+        ax_imp.set_xlabel("importance")
+        ax_imp.set_ylabel("")
+        st.pyplot(fig_imp)
+        plt.close(fig_imp)

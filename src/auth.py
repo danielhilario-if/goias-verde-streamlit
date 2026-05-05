@@ -14,8 +14,9 @@ from src.config.settings import (
     SESSION_AUTH_USER_KEY,
     SESSION_AUTH_VALIDATED_AT_KEY,
 )
+from src.i18n import t
 
-# Margem (em segundos) antes da expiração para tentar renovar o token proativamente.
+# Margem (em segundos) antes da expiracao para tentar renovar o token proativamente.
 _TOKEN_REFRESH_MARGIN_SECONDS = 120
 
 
@@ -81,13 +82,11 @@ def _create_supabase_client():
     if not config.enabled:
         return None
     if not config.url or not config.client_key:
-        raise RuntimeError(
-            "Auth habilitada, mas `supabase.url` e `supabase.publishable_key` não foram configurados."
-        )
+        raise RuntimeError(t("auth.error.missing_credentials_env"))
     try:
         from supabase import create_client
     except ImportError as exc:
-        raise RuntimeError("Dependência `supabase` não instalada. Rode `pip install -r requirements.txt`.") from exc
+        raise RuntimeError(t("auth.error.supabase_not_installed")) from exc
 
     return create_client(config.url, config.client_key)
 
@@ -117,7 +116,7 @@ def _store_auth_session(response: Any) -> dict[str, Any]:
     refresh_token = getattr(session, "refresh_token", None)
 
     if not access_token or user is None:
-        raise RuntimeError("Supabase não retornou uma sessão ativa. Verifique suas credenciais e se o e-mail foi confirmado.")
+        raise RuntimeError(t("auth.error.no_session"))
 
     user_data = _serialize_user(user)
     st.session_state[SESSION_AUTH_ACCESS_TOKEN_KEY] = access_token
@@ -138,10 +137,10 @@ def clear_auth_state():
 
 
 def _try_refresh_token() -> Optional[dict[str, Any]]:
-    """Tenta renovar a sessão usando o refresh_token armazenado.
+    """Tenta renovar a sessao usando o refresh_token armazenado.
 
-    Retorna os dados do usuário atualizados em caso de sucesso, ou None se falhar.
-    O estado de sessão é limpo em caso de falha definitiva.
+    Retorna os dados do usuario atualizados em caso de sucesso, ou None se falhar.
+    O estado de sessao e limpo em caso de falha definitiva.
     """
     refresh_token = st.session_state.get(SESSION_AUTH_REFRESH_TOKEN_KEY)
     if not refresh_token:
@@ -158,14 +157,14 @@ def _try_refresh_token() -> Optional[dict[str, Any]]:
 
 
 def sign_in_with_password(email: str, password: str) -> dict[str, Any]:
-    """Autentica o usuário com e-mail e senha.
+    """Autentica o usuario com e-mail e senha.
 
     Raises:
-        RuntimeError: se as credenciais forem inválidas, e-mail não confirmado,
-                      ou qualquer falha de rede/configuração.
+        RuntimeError: se as credenciais forem invalidas, e-mail nao confirmado,
+                      ou qualquer falha de rede/configuracao.
     """
     if not email or not password:
-        raise RuntimeError("Preencha e-mail e senha antes de continuar.")
+        raise RuntimeError(t("auth.error.fill_credentials"))
 
     client = _create_supabase_client()
     try:
@@ -173,29 +172,29 @@ def sign_in_with_password(email: str, password: str) -> dict[str, Any]:
     except Exception as exc:
         msg = str(exc).lower()
         if "invalid login credentials" in msg or "invalid_credentials" in msg:
-            raise RuntimeError("E-mail ou senha incorretos. Verifique os dados e tente novamente.") from exc
+            raise RuntimeError(t("auth.error.invalid_credentials")) from exc
         if "email not confirmed" in msg:
-            raise RuntimeError("E-mail ainda não confirmado. Verifique sua caixa de entrada.") from exc
+            raise RuntimeError(t("auth.error.email_not_confirmed")) from exc
         if "rate limit" in msg or "too many requests" in msg:
-            raise RuntimeError("Muitas tentativas de login. Aguarde alguns minutos e tente novamente.") from exc
-        raise RuntimeError(f"Falha na autenticação: {exc}") from exc
+            raise RuntimeError(t("auth.error.rate_limit")) from exc
+        raise RuntimeError(t("auth.error.signin_failed", error=exc)) from exc
 
     return _store_auth_session(response)
 
 
 def sign_up_with_password(email: str, password: str) -> bool:
-    """Cadastra um novo usuário com e-mail e senha.
+    """Cadastra um novo usuario com e-mail e senha.
 
-    Retorna True se o cadastro foi realizado e confirmação de e-mail foi enviada,
-    ou False se o usuário já existia (sem revelar isso explicitamente ao cliente).
+    Retorna True se o cadastro foi realizado e confirmacao de e-mail foi enviada,
+    ou False se o usuario ja existia (sem revelar isso explicitamente ao cliente).
 
     Raises:
-        RuntimeError: em caso de senha fraca, e-mail inválido ou erro de rede.
+        RuntimeError: em caso de senha fraca, e-mail invalido ou erro de rede.
     """
     if not email or not password:
-        raise RuntimeError("Preencha e-mail e senha antes de continuar.")
+        raise RuntimeError(t("auth.error.fill_credentials"))
     if len(password) < 6:
-        raise RuntimeError("A senha deve ter ao menos 6 caracteres.")
+        raise RuntimeError(t("auth.error.password_too_short"))
 
     client = _create_supabase_client()
     try:
@@ -204,22 +203,22 @@ def sign_up_with_password(email: str, password: str) -> bool:
     except Exception as exc:
         msg = str(exc).lower()
         if "password" in msg and ("weak" in msg or "short" in msg):
-            raise RuntimeError("Senha muito fraca. Use ao menos 6 caracteres com letras e números.") from exc
+            raise RuntimeError(t("auth.error.weak_password")) from exc
         if "rate limit" in msg or "too many requests" in msg:
-            raise RuntimeError("Muitas tentativas. Aguarde alguns minutos e tente novamente.") from exc
+            raise RuntimeError(t("auth.error.signup_rate_limit")) from exc
         if "invalid email" in msg:
-            raise RuntimeError("Endereço de e-mail inválido.") from exc
-        raise RuntimeError(f"Erro ao cadastrar: {exc}") from exc
+            raise RuntimeError(t("auth.error.invalid_email")) from exc
+        raise RuntimeError(t("auth.error.signup_failed", error=exc)) from exc
 
 
 def get_authenticated_user() -> Optional[dict[str, Any]]:
-    """Retorna o usuário autenticado da sessão atual.
+    """Retorna o usuario autenticado da sessao atual.
 
     Fluxo:
-      1. Se o token ainda está dentro do TTL de validação → retorna cache.
-      2. Se o token está próximo da expiração (< _TOKEN_REFRESH_MARGIN_SECONDS)
-         ou expirou o TTL → tenta renovar via refresh_token.
-      3. Se a renovação falhar → limpa estado e retorna None.
+      1. Se o token ainda esta dentro do TTL de validacao retorna cache.
+      2. Se o token esta proximo da expiracao (< _TOKEN_REFRESH_MARGIN_SECONDS)
+         ou expirou o TTL tenta renovar via refresh_token.
+      3. Se a renovacao falhar limpa estado e retorna None.
     """
     if not is_auth_enabled():
         return None
@@ -238,12 +237,12 @@ def get_authenticated_user() -> Optional[dict[str, Any]]:
         return cached_user
 
     # Fora do TTL: revalida o token com o Supabase.
-    # Se o token estiver próximo de expirar, preferimos fazer refresh logo.
+    # Se o token estiver proximo de expirar, preferimos fazer refresh logo.
     try:
         client = _create_supabase_client()
         response = client.auth.get_user(access_token)
     except Exception:
-        # Token inválido ou expirado: tenta renovar com o refresh_token.
+        # Token invalido ou expirado: tenta renovar com o refresh_token.
         return _try_refresh_token()
 
     user = getattr(response, "user", None)
@@ -269,44 +268,45 @@ def is_admin_user(user: Optional[dict[str, Any]]) -> bool:
     return email.strip().lower() in get_auth_config().admin_emails
 
 
-def get_user_role_label(user: Optional[dict[str, Any]]) -> str:
-    return "Administrador" if is_admin_user(user) else "Usuário"
+def get_user_role_key(user: Optional[dict[str, Any]]) -> str:
+    """Retorna a chave i18n do papel do usuario para ser resolvida via t()."""
+    return "sidebar.role_admin" if is_admin_user(user) else "sidebar.role_user"
 
 
 def logout():
-    """Encerra a sessão local. Não invalida o token no servidor Supabase."""
+    """Encerra a sessao local. Nao invalida o token no servidor Supabase."""
     clear_auth_state()
 
 
 def render_login_gate():
     config = get_auth_config()
 
-    st.title("Projeto Goiás Verde")
-    st.caption("Faça login para acessar o produto Streamlit.")
+    st.title(t("login.title"))
+    st.caption(t("login.caption"))
 
     if not config.url or not config.client_key:
-        st.error("A autenticação Supabase foi habilitada, mas as credenciais não foram configuradas.")
-        st.info("Adicione as credenciais em `.streamlit/secrets.toml` conforme o exemplo `.streamlit/secrets.toml.example`.")
+        st.error(t("login.error_credentials_missing"))
+        st.info(t("login.info_configure_secrets"))
         st.code(
             "[supabase]\n"
             "enabled = true\n"
-            'url = "https://SEU-PROJETO.supabase.co"\n'
-            'publishable_key = "SUA_CHAVE_PUBLISHABLE"\n'
-            'admin_emails = ["admin@dominio.com"]\n'
+            'url = "https://YOUR-PROJECT.supabase.co"\n'
+            'publishable_key = "YOUR_PUBLISHABLE_KEY"\n'
+            'admin_emails = ["admin@example.com"]\n'
         )
         return
 
     _, center_col, _ = st.columns([1, 1.2, 1])
     with center_col:
-        tab_labels = ["Entrar", "Cadastrar"] if config.allow_signup else ["Entrar"]
+        tab_labels = [t("login.tab_signin"), t("login.tab_signup")] if config.allow_signup else [t("login.tab_signin")]
         tabs = st.tabs(tab_labels)
 
-        # --- Aba: Entrar ---
+        # --- Sign in tab ---
         with tabs[0]:
             with st.form("supabase_login_form", clear_on_submit=False):
-                email_login = st.text_input("E-mail", key="login_email")
-                password_login = st.text_input("Senha", type="password", key="login_password")
-                submitted_login = st.form_submit_button("Entrar", type="primary", width="stretch")
+                email_login = st.text_input(t("login.email"), key="login_email")
+                password_login = st.text_input(t("login.password"), type="password", key="login_password")
+                submitted_login = st.form_submit_button(t("login.signin_button"), type="primary", width="stretch")
 
             if submitted_login:
                 try:
@@ -314,33 +314,33 @@ def render_login_gate():
                 except RuntimeError as exc:
                     st.error(str(exc))
                 except Exception as exc:
-                    st.error(f"Erro inesperado: {exc}")
+                    st.error(t("login.unexpected_error", error=exc))
                 else:
-                    st.success("Login realizado com sucesso.")
+                    st.success(t("login.signin_success"))
                     st.rerun()
 
-        # --- Aba: Cadastrar ---
+        # --- Sign up tab ---
         if config.allow_signup:
             with tabs[1]:
-                st.caption("Crie sua conta. Após o cadastro, um e-mail de confirmação será enviado.")
+                st.caption(t("login.signup_caption"))
                 with st.form("supabase_signup_form", clear_on_submit=True):
-                    email_signup = st.text_input("E-mail", key="signup_email")
+                    email_signup = st.text_input(t("login.email"), key="signup_email")
                     password_signup = st.text_input(
-                        "Senha", type="password", key="signup_password",
-                        help="Mínimo 6 caracteres.",
+                        t("login.password"), type="password", key="signup_password",
+                        help=t("login.password_help"),
                     )
-                    password_confirm = st.text_input("Confirme a senha", type="password", key="signup_password_confirm")
-                    submitted_signup = st.form_submit_button("Criar conta", type="primary", width="stretch")
+                    password_confirm = st.text_input(t("login.password_confirm"), type="password", key="signup_password_confirm")
+                    submitted_signup = st.form_submit_button(t("login.signup_button"), type="primary", width="stretch")
 
                 if submitted_signup:
                     if password_signup != password_confirm:
-                        st.error("As senhas não coincidem.")
+                        st.error(t("login.passwords_mismatch"))
                     else:
                         try:
                             sign_up_with_password(email=email_signup, password=password_signup)
                         except RuntimeError as exc:
                             st.error(str(exc))
                         except Exception as exc:
-                            st.error(f"Erro inesperado: {exc}")
+                            st.error(t("login.unexpected_error", error=exc))
                         else:
-                            st.success("Conta criada! Verifique sua caixa de entrada para confirmar o e-mail antes de fazer login.")
+                            st.success(t("login.signup_success"))

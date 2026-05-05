@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-APP_PAGE_TITLE = "Goiás Verde - Fluxo do Solo"
+APP_PAGE_TITLE = "Goias Verde - Fluxo do Solo"
 APP_LAYOUT = "wide"
-APP_SIDEBAR_TITLE = "Projeto Goiás Verde"
+APP_SIDEBAR_TITLE = "Projeto Goias Verde"
 PRIMARY_COLOR = "#0f766e"
 AUTH_VALIDATION_TTL_SECONDS = 300
 
@@ -37,16 +37,16 @@ section[data-testid="stSidebar"] {
 @dataclass(frozen=True)
 class NavigationItem:
     key: str
-    label: str
+    label_key: str  # i18n key resolved at render time via src.i18n.t()
     icon: str
 
 
 NAVIGATION_ITEMS = [
-    NavigationItem(key="upload", label="Upload", icon="cloud-arrow-up"),
-    NavigationItem(key="pipeline", label="Pipeline e Processamento", icon="sliders"),
-    NavigationItem(key="eda", label="EDA", icon="bar-chart"),
-    NavigationItem(key="regression", label="Regressão", icon="graph-up-arrow"),
-    NavigationItem(key="modeling", label="Modelagem", icon="cpu"),
+    NavigationItem(key="upload", label_key="nav.upload", icon="cloud-arrow-up"),
+    NavigationItem(key="pipeline", label_key="nav.pipeline", icon="sliders"),
+    NavigationItem(key="eda", label_key="nav.eda", icon="bar-chart"),
+    NavigationItem(key="regression", label_key="nav.regression", icon="graph-up-arrow"),
+    NavigationItem(key="modeling", label_key="nav.modeling", icon="cpu"),
 ]
 
 PIPELINE_DROP_CANDIDATES = [
