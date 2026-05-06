@@ -1,4 +1,4 @@
-# Goiás Verde Streamlit
+# ChamberFlux
 
 > Aplicação web open-source para análise exploratória de dados e aprendizado
 > de máquina de fluxos de gases de efeito estufa (GEE) do solo medidos com
@@ -16,7 +16,7 @@
 
 ## Visão geral
 
-O `goias-verde-streamlit` consolida em uma única aplicação web todo o fluxo
+O `chamberflux` consolida em uma única aplicação web todo o fluxo
 de análise de GEE com câmara estática: ingestão de arquivos CSV/XLSX
 gerados por analisadores de gases traço a laser (como a série LI-COR
 LI-78xx, que usa espectroscopia OF-CEAS em vez da técnica de absorção
@@ -30,29 +30,67 @@ fluxo de GEE com câmara pode ser analisada.
 
 ## Funcionalidades
 
-1. **Upload** — CSV/XLSX com seleção de aba e cache em memória.
-2. **Pipeline** — Cinco filtros configuráveis com relatório transparente de
+1. **Upload** — CSV/XLSX com seleção de aba, cache em memória e
+   **validação explícita do schema** (colunas esperadas classificadas em
+   *obrigatórias*, *recomendadas* e *opcionais*; checagem de tipo,
+   detecção de sentinelas como −9999, validação de Lat/Lon dentro de
+   [-90,90]/[-180,180]). Colunas ausentes não bloqueiam o uso — apenas
+   desabilitam funcionalidades específicas.
+2. **Pipeline** — Seis filtros configuráveis com relatório transparente de
    etapas: remoção de variáveis, filtro diagnóstico, limiar de R²,
-   outliers por quantis e por grupo, agregação de réplicas (média/mediana).
-3. **EDA** — Nove abas: resumo estatístico, qualidade dos dados,
-   distribuições univariadas, boxplots/violins, matriz de dispersão, mapa
-   de correlação, mapa espacial, **série temporal de fluxos** e
-   **composição categórica**.
+   outliers por quantis (com agrupamento opcional), **limpeza sazonal
+   robusta Q10–Q90** (por gás, por estação, com fator de cerca
+   ajustável) e agregação de réplicas (média/mediana).
+3. **EDA** — Doze abas: resumo estatístico, qualidade dos dados,
+   distribuições univariadas, boxplots/violins, matriz de dispersão,
+   **correlação Pearson / Spearman / Kendall**, mapa espacial, série
+   temporal, composição categórica, **inferência (Kruskal-Wallis +
+   normalidade Shapiro-Wilk / Anderson-Darling / D'Agostino-Pearson +
+   VIF)**, **ranking de hotspots** e **detecção multi-método de outliers**
+   (Z-score · IQR · Isolation Forest · LOF · Elliptic Envelope com
+   critério de consenso ≥3).
 4. **Regressão** — Presets bivariados, incluindo o preset de
    **sensibilidade térmica Q₁₀** (van 't Hoff) usado na literatura de
    fluxos de solo, mais bloco totalmente customizável com hue e facet.
 5. **Modelagem** — Regressão supervisionada com cinco estimadores
    (Linear, Random Forest, Gradient Boosting, Decision Tree, KNN),
-   holdout + validação cruzada, **gráfico predito vs. observado** e
-   barra de importância das features.
-6. **Autenticação** — Camada opcional de login via Supabase para uso
+   holdout + validação cruzada, gráfico predito vs. observado e barra
+   de importância das features.
+6. **Análise Espacial** — Seis abas: **interpolação IDW**, **Moran's I
+   global + LISA local** (HH/LL/HL/LH/NS), **Getis-Ord G\*** para
+   detecção de hotspots significativos, **agregação em grade UTM**
+   regular (1 km por padrão), **krigagem ordinária** com variograma
+   esférico ajustado, e **basemap de Rio Verde** via `geobr`.
+7. **Série Temporal** — Agregação diária (média/mediana) e
+   **decomposição STL** (tendência + sazonalidade + resíduo) com
+   período sazonal configurável e métricas de força de tendência e
+   sazonalidade.
+8. **Comparação por grupo** — Página configurável (preset opcional
+   *Mata × Outros* para a questão Mata-vs-Cropland; aceita qualquer
+   partição de qualquer coluna categórica): média ± SE e mediana por
+   grupo, **teste de Mann-Whitney U**, **regressão log-linear
+   $\log(Y) \sim X$ por grupo** com Y e X escolhidos pelo usuário, e
+   perfil **horário com fluxo cumulativo**.
+9. **Autenticação** — Camada opcional de login via Supabase para uso
    institucional.
-7. **i18n** — Seletor de idioma para **Português / Inglês / Espanhol**.
+10. **i18n** — Seletor de idioma para **Português / Inglês / Espanhol**.
 
 ## Requisitos
 
-- Python 3.10
-- Dependências em [`requirements.txt`](./requirements.txt).
+- Python 3.10+
+- Dependências em [`requirements.txt`](./requirements.txt):
+  - **Núcleo**: Streamlit, pandas, NumPy, Matplotlib, seaborn,
+    scikit-learn, openpyxl, Supabase.
+  - **Estatística**: scipy, statsmodels (STL, VIF, testes de
+    normalidade).
+  - **Geoespacial**: geopandas, shapely, geobr (limites municipais
+    brasileiros), libpysal (pesos espaciais KNN), esda (Moran's I,
+    LISA, Getis-Ord G\*).
+
+> No Windows, geopandas/geobr/libpysal/esda dependem de GDAL. Se o
+> `pip install` falhar para esses pacotes, considere usar Conda
+> (`conda install -c conda-forge geopandas libpysal esda`) ou um wheel
+> de GDAL pré-compilado.
 
 ## Instalação
 
@@ -65,6 +103,15 @@ source .venv/bin/activate
 
 pip install -U pip wheel
 pip install -r requirements.txt
+```
+
+Se também quiser regenerar as figuras do manuscrito com os scripts de
+captura baseados em Playwright em `data/sample/`, instale as
+dependências de desenvolvimento:
+
+```bash
+pip install -r requirements-dev.txt
+playwright install chromium
 ```
 
 ## Como executar
@@ -126,15 +173,17 @@ abaixo. Veja o arquivo [LICENSE](./LICENSE) para o texto completo.
 Se você usa este software em sua pesquisa, **deve citar a publicação**:
 
 ```bibtex
-@article{Souza2025GoiasVerde,
-  author  = {da Silva Souza, Leandro Rodrigues and Jakelaitis, Adriano and
-             Alves da Silva, Daiane and Tonus Ribeiro, Caio and
-             Hil{\'a}rio da Silva, Daniel and Alves Pereira, Adriano and
-             de Oliveira Andrade, Adriano},
-  title   = {{Goi{\'a}s Verde Streamlit}: An open-source web application
+@article{Souza2026ChamberFlux,
+  author  = {Souza, Leandro Rodrigues da Silva and
+             Hil{\'a}rio da Silva, Daniel and Abade, Andr{\'e} and Thomazini, Andr{\'e} and
+             Cabral Filho, Fernando Rodrigues and Paim, Tiago do Prado and
+             Pinto dos Santos, Erli and Cordeiro, Douglas Farias and
+             Alves da Silva, Daiane and Costa, Alan Carlos da},
+  title   = {{ChamberFlux}: An open-source web application
              for exploratory analysis and machine learning of soil
-             greenhouse gas fluxes measured with portable laser-based
-             trace gas analyzers},
+             greenhouse gas fluxes measured with the {LI-COR} {LI-7810SC}
+             (CH$_4$/CO$_2$/H$_2$O) and {LI-7820} (N$_2$O/H$_2$O) portable
+             laser-based trace gas analyzers},
   journal = {Software Impacts},
   year    = {2025},
   doi     = {10.1016/j.simpa.2025.XXXXXX}

@@ -188,6 +188,45 @@ def filter_outliers_quantile(
     return out, StepLog(step=step, before=before, after=len(out))
 
 
+def apply_seasonal_q10_q90(
+    df: pd.DataFrame,
+    columns: list[str],
+    season_col: str,
+    fence_factor: float = 1.5,
+) -> tuple[pd.DataFrame, StepLog]:
+    """Limpeza sazonal robusta usando Q10/Q90 dentro de cada nível de season_col.
+
+    Para cada coluna em ``columns``, calcula Q10 e Q90 dentro de cada grupo;
+    o intervalo robusto RI = Q90 - Q10 é multiplicado por ``fence_factor``
+    e estende os limites para ``[Q10 - fence_factor·RI, Q90 + fence_factor·RI]``.
+    Linhas fora do intervalo em qualquer coluna são removidas; valores ausentes
+    em uma coluna NÃO causam remoção (são tratados como ``True`` na máscara).
+    """
+    before = len(df)
+    out = df.copy()
+
+    if season_col not in out.columns:
+        return out, StepLog(step=f"Q10-Q90 ignorada (sem coluna {season_col})", before=before, after=before)
+
+    valid_cols = [c for c in columns if c in out.columns]
+    if not valid_cols:
+        return out, StepLog(step="Q10-Q90 ignorada (sem colunas validas)", before=before, after=before)
+
+    mask = pd.Series(True, index=out.index)
+    for col in valid_cols:
+        q10 = out.groupby(season_col)[col].transform(lambda s: s.quantile(0.10))
+        q90 = out.groupby(season_col)[col].transform(lambda s: s.quantile(0.90))
+        ri = q90 - q10
+        low = q10 - fence_factor * ri
+        high = q90 + fence_factor * ri
+        within = out[col].between(low, high) | out[col].isna()
+        mask &= within
+
+    out = out[mask].copy()
+    step = f"Limpeza sazonal Q10-Q90 por {season_col} ({len(valid_cols)} cols, k={fence_factor})"
+    return out, StepLog(step=step, before=before, after=len(out))
+
+
 def build_step_report(logs: list[StepLog]) -> pd.DataFrame:
     rows = []
     for item in logs:

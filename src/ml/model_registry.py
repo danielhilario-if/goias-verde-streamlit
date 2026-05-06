@@ -17,7 +17,7 @@ from sklearn.tree import DecisionTreeRegressor
 @dataclass(frozen=True)
 class ModelDefinition:
     key: str
-    label: str
+    label_key: str
     scale_numeric: bool
     estimator_factory: Callable[[], Any]
 
@@ -25,31 +25,31 @@ class ModelDefinition:
 MODEL_REGISTRY = {
     "linear_regression": ModelDefinition(
         key="linear_regression",
-        label="Linear Regression",
+        label_key="modeling.label.linear",
         scale_numeric=True,
         estimator_factory=lambda: LinearRegression(),
     ),
     "random_forest": ModelDefinition(
         key="random_forest",
-        label="Random Forest",
+        label_key="modeling.label.rf",
         scale_numeric=False,
         estimator_factory=lambda: RandomForestRegressor(n_estimators=200, random_state=42),
     ),
     "decision_tree": ModelDefinition(
         key="decision_tree",
-        label="Decision Tree",
+        label_key="modeling.label.dt",
         scale_numeric=False,
         estimator_factory=lambda: DecisionTreeRegressor(random_state=42),
     ),
     "gradient_boosting": ModelDefinition(
         key="gradient_boosting",
-        label="Gradient Boosting",
+        label_key="modeling.label.gb",
         scale_numeric=False,
         estimator_factory=lambda: GradientBoostingRegressor(random_state=42),
     ),
     "knn": ModelDefinition(
         key="knn",
-        label="K-Nearest Neighbors",
+        label_key="modeling.label.knn",
         scale_numeric=True,
         estimator_factory=lambda: KNeighborsRegressor(n_neighbors=5),
     ),

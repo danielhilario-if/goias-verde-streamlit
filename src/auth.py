@@ -306,7 +306,7 @@ def render_login_gate():
             with st.form("supabase_login_form", clear_on_submit=False):
                 email_login = st.text_input(t("login.email"), key="login_email")
                 password_login = st.text_input(t("login.password"), type="password", key="login_password")
-                submitted_login = st.form_submit_button(t("login.signin_button"), type="primary", width="stretch")
+                submitted_login = st.form_submit_button(t("login.signin_button"), type="primary", use_container_width=True)
 
             if submitted_login:
                 try:
@@ -330,7 +330,7 @@ def render_login_gate():
                         help=t("login.password_help"),
                     )
                     password_confirm = st.text_input(t("login.password_confirm"), type="password", key="signup_password_confirm")
-                    submitted_signup = st.form_submit_button(t("login.signup_button"), type="primary", width="stretch")
+                    submitted_signup = st.form_submit_button(t("login.signup_button"), type="primary", use_container_width=True)
 
                 if submitted_signup:
                     if password_signup != password_confirm:

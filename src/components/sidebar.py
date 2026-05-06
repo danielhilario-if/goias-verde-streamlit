@@ -68,7 +68,7 @@ def render_sidebar(user_email: str | None = None, user_role_key: str | None = No
             st.caption(t("sidebar.connected_as", email=user_email or "anonymous"))
             if user_role_key:
                 st.caption(t("sidebar.profile", role=t(user_role_key)))
-            if st.button(t("sidebar.logout"), width="stretch"):
+            if st.button(t("sidebar.logout"), use_container_width=True):
                 logout()
                 st.rerun()
 

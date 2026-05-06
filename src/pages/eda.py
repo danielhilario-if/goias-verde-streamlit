@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import streamlit as st
@@ -51,9 +52,12 @@ def render():
             t("eda.tab.spatial"),
             t("eda.tab.temporal"),
             t("eda.tab.composition"),
+            t("eda.tab.inference"),
+            t("eda.tab.hotspots"),
+            t("eda.tab.outliers"),
         ]
     )
-    tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = tabs
+    tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = tabs
 
     # ---------------- Tab 0: summary ----------------
     with tab0:
@@ -62,7 +66,7 @@ def render():
         desc["skewness"] = df[numeric_cols].skew().round(4)
         desc["kurtosis"] = df[numeric_cols].kurt().round(4)
         desc = desc.round(4)
-        st.dataframe(desc, width="stretch")
+        st.dataframe(desc, use_container_width=True)
         st.download_button(
             t("eda.summary.download"),
             data=desc.to_csv(index=True).encode("utf-8-sig"),
@@ -86,7 +90,7 @@ def render():
             .sort_values("missing", ascending=False)
         )
         st.markdown(f"##### {t('eda.quality.missing_title')}")
-        st.dataframe(missing_df, width="stretch")
+        st.dataframe(missing_df, use_container_width=True)
 
         non_zero_missing = missing_df[missing_df["missing"] > 0]
         if not non_zero_missing.empty:
@@ -114,7 +118,7 @@ def render():
                 key="eda_quality_cat",
             )
             counts = df[cat_col].value_counts(dropna=False).rename_axis(cat_col).reset_index(name="count")
-            st.dataframe(counts, width="stretch")
+            st.dataframe(counts, use_container_width=True)
 
     # ---------------- Tab 2: bivariate (univariate distributions) ----------------
     with tab2:
@@ -212,16 +216,29 @@ def render():
             default=default_corr,
             key="eda_corr_cols",
         )
+        method_label = st.radio(
+            t("eda.corr.method"),
+            options=[t("eda.corr.method.pearson"), t("eda.corr.method.spearman"), t("eda.corr.method.kendall")],
+            horizontal=True,
+            key="eda_corr_method",
+        )
+        if method_label == t("eda.corr.method.pearson"):
+            method = "pearson"
+        elif method_label == t("eda.corr.method.spearman"):
+            method = "spearman"
+        else:
+            method = "kendall"
         if len(selected_corr) >= 2:
-            corr_df = df[selected_corr].corr(numeric_only=True)
+            corr_df = df[selected_corr].corr(method=method, numeric_only=True)
             fig_corr, ax_corr = plt.subplots(figsize=(8, 6))
             sns.heatmap(corr_df, annot=True, cmap="coolwarm", ax=ax_corr)
+            ax_corr.set_title(t("eda.corr.title_dynamic", method=method_label))
             st.pyplot(fig_corr)
-            st.dataframe(corr_df, width="stretch")
+            st.dataframe(corr_df, use_container_width=True)
             st.download_button(
                 t("eda.corr.download"),
                 data=corr_df.to_csv(index=True).encode("utf-8"),
-                file_name="correlacao.csv",
+                file_name=f"correlacao_{method}.csv",
                 mime="text/csv",
             )
         else:
@@ -346,3 +363,340 @@ def render():
             ax_pie.set_title(t("eda.composition.title_dynamic", col=comp_col))
             st.pyplot(fig_comp)
             plt.close(fig_comp)
+
+    # ---------------- Tab 9: inference (Kruskal-Wallis) ----------------
+    with tab9:
+        st.markdown(f"#### {t('eda.inference.title')}")
+        st.caption(t("eda.inference.caption"))
+        try:
+            from scipy.stats import kruskal
+        except ImportError:
+            st.warning(t("eda.inference.missing_scipy"))
+        else:
+            if not cat_cols:
+                st.info(t("eda.inference.no_cat"))
+            else:
+                default_group = "Época" if "Época" in cat_cols else cat_cols[0]
+                group_col = st.selectbox(
+                    t("eda.inference.group"),
+                    options=cat_cols,
+                    index=cat_cols.index(default_group),
+                    key="eda_inf_group",
+                )
+                default_targets = [c for c in ("FCO2_DRY", "FCH4_DRY", "TS_2 initial_value", "SWC_2 initial_value") if c in numeric_cols]
+                targets = st.multiselect(
+                    t("eda.inference.targets"),
+                    options=numeric_cols,
+                    default=default_targets or numeric_cols[:3],
+                    key="eda_inf_targets",
+                )
+                alpha = st.slider(t("eda.inference.alpha"), 0.001, 0.10, 0.05, 0.005, key="eda_inf_alpha")
+
+                rows = []
+                for col in targets:
+                    work = df[[group_col, col]].dropna()
+                    if work.empty:
+                        continue
+                    groups = [g[col].values for _, g in work.groupby(group_col) if len(g) >= 2]
+                    if len(groups) < 2:
+                        rows.append({"variable": col, "groups": len(groups), "H": np.nan, "p_value": np.nan, "significant": False})
+                        continue
+                    try:
+                        stat, p_value = kruskal(*groups)
+                    except Exception:
+                        rows.append({"variable": col, "groups": len(groups), "H": np.nan, "p_value": np.nan, "significant": False})
+                        continue
+                    rows.append({
+                        "variable": col,
+                        "groups": len(groups),
+                        "H": round(float(stat), 4),
+                        "p_value": float(p_value),
+                        "significant": bool(p_value < alpha),
+                    })
+                if rows:
+                    result_df = pd.DataFrame(rows)
+                    st.dataframe(result_df, use_container_width=True)
+                    st.download_button(
+                        t("eda.inference.download"),
+                        data=result_df.to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"kruskal_{group_col}.csv",
+                        mime="text/csv",
+                    )
+
+            st.markdown("---")
+            st.markdown(f"##### {t('eda.normality.title')}")
+            st.caption(t("eda.normality.caption"))
+            try:
+                from scipy.stats import shapiro, anderson, normaltest
+            except ImportError:
+                st.warning(t("eda.inference.missing_scipy"))
+            else:
+                default_norm = [c for c in ("FCO2_DRY", "FCH4_DRY", "TS_2 initial_value", "SWC_2 initial_value") if c in numeric_cols]
+                norm_targets = st.multiselect(
+                    t("eda.normality.targets"),
+                    options=numeric_cols,
+                    default=default_norm or numeric_cols[:3],
+                    key="eda_norm_targets",
+                )
+                norm_alpha = st.slider(t("eda.normality.alpha"), 0.001, 0.10, 0.05, 0.005, key="eda_norm_alpha")
+                norm_rows = []
+                for col in norm_targets:
+                    sample = df[col].dropna().to_numpy()
+                    if len(sample) < 8:
+                        continue
+                    try:
+                        sw_stat, sw_p = shapiro(sample[:5000]) if len(sample) > 5000 else shapiro(sample)
+                    except Exception:
+                        sw_stat, sw_p = float("nan"), float("nan")
+                    try:
+                        ad_res = anderson(sample, dist="norm")
+                        ad_stat = float(ad_res.statistic)
+                        ad_crit5 = float(ad_res.critical_values[2])
+                        ad_reject = bool(ad_stat > ad_crit5)
+                    except Exception:
+                        ad_stat, ad_crit5, ad_reject = float("nan"), float("nan"), False
+                    try:
+                        dap_stat, dap_p = normaltest(sample)
+                    except Exception:
+                        dap_stat, dap_p = float("nan"), float("nan")
+                    norm_rows.append({
+                        "variable": col,
+                        "n": int(len(sample)),
+                        "shapiro_W": round(float(sw_stat), 4) if sw_stat == sw_stat else float("nan"),
+                        "shapiro_p": float(sw_p) if sw_p == sw_p else float("nan"),
+                        "anderson_A2": round(ad_stat, 4) if ad_stat == ad_stat else float("nan"),
+                        "anderson_crit_5%": round(ad_crit5, 4) if ad_crit5 == ad_crit5 else float("nan"),
+                        "anderson_reject_5%": ad_reject,
+                        "dagostino_K2": round(float(dap_stat), 4) if dap_stat == dap_stat else float("nan"),
+                        "dagostino_p": float(dap_p) if dap_p == dap_p else float("nan"),
+                        "normal_at_alpha": bool((sw_p == sw_p and sw_p > norm_alpha) and (dap_p == dap_p and dap_p > norm_alpha) and not ad_reject),
+                    })
+                if norm_rows:
+                    norm_df = pd.DataFrame(norm_rows)
+                    st.dataframe(norm_df, use_container_width=True)
+                    st.download_button(
+                        t("eda.normality.download"),
+                        data=norm_df.to_csv(index=False).encode("utf-8-sig"),
+                        file_name="normality_tests.csv",
+                        mime="text/csv",
+                    )
+
+            st.markdown("---")
+            st.markdown(f"##### {t('eda.vif.title')}")
+            st.caption(t("eda.vif.caption"))
+            try:
+                from statsmodels.stats.outliers_influence import variance_inflation_factor
+                from statsmodels.tools.tools import add_constant
+            except ImportError:
+                st.warning(t("eda.vif.missing_statsmodels"))
+            else:
+                default_vif = [c for c in ("TS_2 initial_value", "SWC_2 initial_value", "Latitude", "Longitude") if c in numeric_cols]
+                vif_targets = st.multiselect(
+                    t("eda.vif.targets"),
+                    options=numeric_cols,
+                    default=default_vif or numeric_cols[:3],
+                    key="eda_vif_targets",
+                )
+                if len(vif_targets) >= 2:
+                    vif_data = df[vif_targets].dropna()
+                    if len(vif_data) >= len(vif_targets) + 1:
+                        try:
+                            X = add_constant(vif_data.to_numpy())
+                            vif_rows = [
+                                {"variable": col, "VIF": round(float(variance_inflation_factor(X, i + 1)), 4)}
+                                for i, col in enumerate(vif_targets)
+                            ]
+                            vif_df = pd.DataFrame(vif_rows).sort_values("VIF", ascending=False)
+                            st.dataframe(vif_df, use_container_width=True)
+                            st.download_button(
+                                t("eda.vif.download"),
+                                data=vif_df.to_csv(index=False).encode("utf-8-sig"),
+                                file_name="vif.csv",
+                                mime="text/csv",
+                            )
+                        except Exception as exc:
+                            st.error(t("eda.vif.error", error=str(exc)))
+                    else:
+                        st.info(t("eda.vif.too_few"))
+
+    # ---------------- Tab 10: hotspots ----------------
+    with tab10:
+        st.markdown(f"#### {t('eda.hotspots.title')}")
+        st.caption(t("eda.hotspots.caption"))
+        if not cat_cols:
+            st.info(t("eda.hotspots.no_cat"))
+        else:
+            default_group = "Fazenda" if "Fazenda" in cat_cols else cat_cols[0]
+            group_col = st.selectbox(
+                t("eda.hotspots.group"),
+                options=cat_cols,
+                index=cat_cols.index(default_group),
+                key="eda_hot_group",
+            )
+            default_target = "FCO2_DRY" if "FCO2_DRY" in numeric_cols else numeric_cols[0]
+            target = st.selectbox(
+                t("eda.hotspots.target"),
+                options=numeric_cols,
+                index=numeric_cols.index(default_target),
+                key="eda_hot_target",
+            )
+            facet_options = [none_label] + cat_cols
+            facet_col = st.selectbox(
+                t("eda.hotspots.facet"),
+                options=facet_options,
+                key="eda_hot_facet",
+            )
+            top_n = st.slider(t("eda.hotspots.top_n"), 3, 30, 10, 1, key="eda_hot_topn")
+            agg_label = st.radio(
+                t("eda.hotspots.agg"),
+                options=[t("eda.hotspots.agg.median"), t("eda.hotspots.agg.mean")],
+                horizontal=True,
+                key="eda_hot_agg",
+            )
+            agg_func = "median" if agg_label == t("eda.hotspots.agg.median") else "mean"
+
+            keys = [group_col] if facet_col == none_label else [facet_col, group_col]
+            ranking = (
+                df[keys + [target]]
+                .dropna()
+                .groupby(keys)
+                .agg(value=(target, agg_func), n=(target, "size"))
+                .reset_index()
+                .sort_values(["value"] if facet_col == none_label else [facet_col, "value"], ascending=[False] if facet_col == none_label else [True, False])
+            )
+            if facet_col != none_label:
+                ranking = ranking.groupby(facet_col, group_keys=False).head(top_n)
+            else:
+                ranking = ranking.head(top_n)
+            ranking["value"] = ranking["value"].round(4)
+
+            st.dataframe(ranking, use_container_width=True)
+            st.download_button(
+                t("eda.hotspots.download"),
+                data=ranking.to_csv(index=False).encode("utf-8-sig"),
+                file_name=f"hotspots_{target}_{group_col}.csv",
+                mime="text/csv",
+            )
+
+            fig_h, ax_h = plt.subplots(figsize=(10, max(4, 0.35 * len(ranking))))
+            if facet_col == none_label:
+                order = ranking[group_col].astype(str).tolist()
+                sns.barplot(
+                    data=ranking,
+                    y=group_col,
+                    x="value",
+                    order=order,
+                    palette="rocket_r",
+                    hue=group_col,
+                    legend=False,
+                    ax=ax_h,
+                )
+            else:
+                sns.barplot(
+                    data=ranking,
+                    y=group_col,
+                    x="value",
+                    hue=facet_col,
+                    palette="viridis",
+                    ax=ax_h,
+                )
+            ax_h.set_xlabel(t("eda.hotspots.x_label", agg=agg_label, var=target))
+            ax_h.set_ylabel(group_col)
+            ax_h.set_title(t("eda.hotspots.title_dynamic", var=target, group=group_col))
+            st.pyplot(fig_h)
+            plt.close(fig_h)
+
+    # ---------------- Tab 11: outliers (multi-method) ----------------
+    with tab11:
+        st.markdown(f"#### {t('eda.outliers.title')}")
+        st.caption(t("eda.outliers.caption"))
+
+        default_out = [c for c in ("FCO2_DRY", "FCH4_DRY", "TS_2 initial_value", "SWC_2 initial_value") if c in numeric_cols]
+        out_targets = st.multiselect(
+            t("eda.outliers.targets"),
+            options=numeric_cols,
+            default=default_out or numeric_cols[:3],
+            key="eda_out_targets",
+        )
+        contamination = st.slider(t("eda.outliers.contamination"), 0.01, 0.20, 0.05, 0.01, key="eda_out_cont")
+
+        if len(out_targets) >= 1:
+            data = df[out_targets].dropna().copy()
+            if len(data) < 20:
+                st.info(t("eda.outliers.too_few"))
+            else:
+                z = (data - data.mean()) / data.std(ddof=0).replace(0, 1)
+                z_flag = (z.abs() > 3).any(axis=1).astype(int)
+
+                q1 = data.quantile(0.25)
+                q3 = data.quantile(0.75)
+                iqr = q3 - q1
+                lo = q1 - 1.5 * iqr
+                hi = q3 + 1.5 * iqr
+                iqr_flag = ((data < lo) | (data > hi)).any(axis=1).astype(int)
+
+                if_flag = pd.Series(0, index=data.index, dtype=int)
+                lof_flag = pd.Series(0, index=data.index, dtype=int)
+                env_flag = pd.Series(0, index=data.index, dtype=int)
+                try:
+                    from sklearn.ensemble import IsolationForest
+                    from sklearn.neighbors import LocalOutlierFactor
+                    from sklearn.covariance import EllipticEnvelope
+                    from sklearn.preprocessing import StandardScaler
+
+                    Xs = StandardScaler().fit_transform(data.to_numpy())
+                    if_pred = IsolationForest(contamination=contamination, random_state=42).fit_predict(Xs)
+                    if_flag = pd.Series((if_pred == -1).astype(int), index=data.index)
+                    lof_pred = LocalOutlierFactor(contamination=contamination).fit_predict(Xs)
+                    lof_flag = pd.Series((lof_pred == -1).astype(int), index=data.index)
+                    if data.shape[1] >= 2 and len(data) >= 5 * data.shape[1]:
+                        try:
+                            env_pred = EllipticEnvelope(contamination=contamination, support_fraction=None, random_state=42).fit_predict(Xs)
+                            env_flag = pd.Series((env_pred == -1).astype(int), index=data.index)
+                        except Exception:
+                            pass
+                except ImportError:
+                    st.warning(t("eda.outliers.missing_sklearn"))
+
+                consensus = z_flag + iqr_flag + if_flag + lof_flag + env_flag
+                audit = data.copy()
+                audit["z_score"] = z_flag
+                audit["iqr"] = iqr_flag
+                audit["isolation_forest"] = if_flag
+                audit["lof"] = lof_flag
+                audit["elliptic_envelope"] = env_flag
+                audit["votes"] = consensus
+                audit["consensus_outlier"] = (consensus >= 3).astype(int)
+
+                c1, c2, c3, c4, c5 = st.columns(5)
+                c1.metric("Z-score", int(z_flag.sum()))
+                c2.metric("IQR", int(iqr_flag.sum()))
+                c3.metric("IsolationForest", int(if_flag.sum()))
+                c4.metric("LOF", int(lof_flag.sum()))
+                c5.metric(t("eda.outliers.consensus"), int(audit["consensus_outlier"].sum()))
+
+                st.dataframe(audit.head(200), use_container_width=True)
+                st.download_button(
+                    t("eda.outliers.download"),
+                    data=audit.to_csv(index=True).encode("utf-8-sig"),
+                    file_name="outliers_audit.csv",
+                    mime="text/csv",
+                )
+
+                fig_o, ax_o = plt.subplots(figsize=(8, 4.5))
+                method_counts = {
+                    "Z-score": int(z_flag.sum()),
+                    "IQR": int(iqr_flag.sum()),
+                    "IsolationForest": int(if_flag.sum()),
+                    "LOF": int(lof_flag.sum()),
+                    "EllipticEnvelope": int(env_flag.sum()),
+                    t("eda.outliers.consensus"): int(audit["consensus_outlier"].sum()),
+                }
+                names = list(method_counts.keys())
+                vals = list(method_counts.values())
+                sns.barplot(x=names, y=vals, hue=names, palette="rocket", legend=False, ax=ax_o)
+                ax_o.set_ylabel(t("eda.outliers.count"))
+                ax_o.set_title(t("eda.outliers.summary_title"))
+                ax_o.tick_params(axis="x", rotation=20)
+                st.pyplot(fig_o)
+                plt.close(fig_o)

@@ -19,6 +19,7 @@ from src.pipeline import (
     apply_diagnostic_filter,
     apply_r2_threshold,
     aggregate_reps,
+    apply_seasonal_q10_q90,
     build_step_report,
     filter_outliers_quantile,
     find_first_existing,
@@ -92,6 +93,24 @@ def render():
             index=outlier_group_options.index(default_group_label),
         )
 
+        st.markdown(f"### {t('pipeline.section.seasonal_q')}")
+        st.caption(t("pipeline.seasonal_q.caption"))
+        use_seasonal_q = st.checkbox(t("pipeline.seasonal_q.checkbox"), value=False)
+        seasonal_default_cols = [c for c in ("FCO2_DRY", "FCH4_DRY", "FN2O", "N2O_Flux", "CO2_Flux", "CH4_Flux") if c in numeric_cols]
+        seasonal_q_cols = st.multiselect(
+            t("pipeline.seasonal_q.columns"),
+            options=numeric_cols,
+            default=seasonal_default_cols,
+        )
+        seasonal_options = [c for c in df_raw.columns if c not in numeric_cols]
+        seasonal_default_col = "Época" if "Época" in seasonal_options else (seasonal_options[0] if seasonal_options else None)
+        seasonal_col = st.selectbox(
+            t("pipeline.seasonal_q.season_col"),
+            options=seasonal_options or list(df_raw.columns),
+            index=seasonal_options.index(seasonal_default_col) if seasonal_default_col in seasonal_options else 0,
+        )
+        seasonal_k = st.slider(t("pipeline.seasonal_q.fence"), 0.5, 3.0, 1.5, 0.1)
+
         st.markdown(f"### {t('pipeline.section.rep')}")
         st.caption(t("pipeline.rep.caption"))
         use_rep = st.checkbox(t("pipeline.rep.checkbox"), value=True)
@@ -149,6 +168,16 @@ def render():
             df, log_item = filter_outliers_quantile(df, valid_outlier_columns, q_min, q_max, group_col)
             logs.append(log_item)
 
+        if use_seasonal_q:
+            valid_q_cols = [c for c in seasonal_q_cols if c in df.columns]
+            if seasonal_col not in df.columns:
+                warnings.append(t("pipeline.warn_seasonal_q_missing", col=seasonal_col))
+            elif not valid_q_cols:
+                warnings.append(t("pipeline.warn_seasonal_q_no_cols"))
+            else:
+                df, log_item = apply_seasonal_q10_q90(df, valid_q_cols, seasonal_col, fence_factor=seasonal_k)
+                logs.append(log_item)
+
         if use_rep:
             valid_rep_groups = [column for column in rep_group_cols if column in df.columns and column != rep_col]
             if rep_col not in df.columns:
@@ -174,12 +203,12 @@ def render():
 
     st.markdown(f"#### {t('pipeline.report_title')}")
     if not report.empty:
-        st.dataframe(_localized_report(report), width="stretch")
+        st.dataframe(_localized_report(report), use_container_width=True)
     else:
         st.info(t("pipeline.report_empty"))
 
     st.markdown(f"#### {t('pipeline.preview_title')}")
-    st.dataframe(df_processed.head(20), width="stretch")
+    st.dataframe(df_processed.head(20), use_container_width=True)
 
     st.markdown(f"#### {t('pipeline.export_title')}")
     col_csv, col_xlsx = st.columns(2)

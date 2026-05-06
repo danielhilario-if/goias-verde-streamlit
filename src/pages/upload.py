@@ -1,9 +1,73 @@
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 
 from src.i18n import t
+from src.schema import validate_dataframe
 from src.state import get_excel_sheets, get_raw_dataframe, load_data, set_loaded_dataset
+
+_TIER_ORDER = ("required", "recommended", "optional")
+_TIER_LABEL_KEY = {
+    "required": "upload.schema.tier_required",
+    "recommended": "upload.schema.tier_recommended",
+    "optional": "upload.schema.tier_optional",
+}
+_STATUS_LABEL_KEY = {
+    "present": "upload.schema.status_present",
+    "missing": "upload.schema.status_missing",
+    "type_mismatch": "upload.schema.status_type_mismatch",
+}
+
+
+def _render_schema_report(df: pd.DataFrame) -> None:
+    result = validate_dataframe(df)
+
+    st.markdown(f"#### {t('upload.schema.title')}")
+    st.caption(t("upload.schema.caption"))
+
+    counts = {tier: 0 for tier in _TIER_ORDER}
+    missing_counts = {tier: 0 for tier in _TIER_ORDER}
+    for row in result.rows:
+        counts[row["tier"]] += 1
+        if row["status"] == "missing":
+            missing_counts[row["tier"]] += 1
+
+    cols = st.columns(len(_TIER_ORDER))
+    for i, tier in enumerate(_TIER_ORDER):
+        present = counts[tier] - missing_counts[tier]
+        cols[i].metric(t(_TIER_LABEL_KEY[tier]), f"{present}/{counts[tier]}")
+
+    if result.errors:
+        for err in result.errors:
+            st.error(err)
+    if result.required_missing:
+        st.warning(t("upload.schema.required_missing", cols=", ".join(result.required_missing)))
+    if result.recommended_missing:
+        st.info(t("upload.schema.recommended_missing", cols=", ".join(result.recommended_missing)))
+    for w in result.warnings:
+        st.caption(":warning: " + w)
+
+    table = pd.DataFrame([
+        {
+            t("upload.schema.col.tier"): t(_TIER_LABEL_KEY[r["tier"]]),
+            t("upload.schema.col.label"): r["label"],
+            t("upload.schema.col.expected"): r["expected"],
+            t("upload.schema.col.found"): r["found"] or "—",
+            t("upload.schema.col.type"): r["type_found"] or "—",
+            t("upload.schema.col.status"): t(_STATUS_LABEL_KEY[r["status"]]),
+            t("upload.schema.col.feature"): r["feature"],
+        }
+        for r in result.rows
+    ])
+    with st.expander(t("upload.schema.expander"), expanded=False):
+        st.dataframe(table, use_container_width=True)
+        st.download_button(
+            t("upload.schema.download"),
+            data=table.to_csv(index=False).encode("utf-8-sig"),
+            file_name="schema_validation.csv",
+            mime="text/csv",
+        )
 
 
 def render():
@@ -41,4 +105,6 @@ def render():
         c1, c2 = st.columns(2)
         c1.metric(t("upload.metric_rows"), len(df_raw))
         c2.metric(t("upload.metric_cols"), len(df_raw.columns))
-        st.dataframe(df_raw.head(20), width="stretch")
+        _render_schema_report(df_raw)
+        st.markdown(f"#### {t('upload.preview_title')}")
+        st.dataframe(df_raw.head(20), use_container_width=True)

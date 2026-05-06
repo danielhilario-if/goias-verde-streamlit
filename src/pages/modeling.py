@@ -45,7 +45,7 @@ def render():
         t("modeling.models"),
         options=list(MODEL_REGISTRY.keys()),
         default=DEFAULT_MODEL_KEYS,
-        format_func=lambda model_key: MODEL_REGISTRY[model_key].label,
+        format_func=lambda model_key: t(MODEL_REGISTRY[model_key].label_key),
     )
     if not selected_models:
         st.warning(t("modeling.warn_min_model"))
@@ -85,12 +85,12 @@ def render():
             predictions = pipeline.predict(X_test)
             cv_scores = cross_val_score(pipeline, X, y, cv=cv, scoring="r2")
         except Exception as exc:
-            failures.append(t("modeling.warn_train_failed", error=f"{model_def.label}: {exc}"))
+            failures.append(t("modeling.warn_train_failed", error=f"{t(model_def.label_key)}: {exc}"))
             continue
 
         results.append(
             {
-                t("modeling.col.model"): model_def.label,
+                t("modeling.col.model"): t(model_def.label_key),
                 t("modeling.col.r2_holdout"): r2_score(y_test, predictions),
                 t("modeling.col.mae_holdout"): mean_absolute_error(y_test, predictions),
                 t("modeling.col.rmse_holdout"): mean_squared_error(y_test, predictions) ** 0.5,
@@ -99,11 +99,11 @@ def render():
             }
         )
 
-        holdout_predictions[model_def.label] = pd.DataFrame({"observed": y_test.to_numpy(), "predicted": predictions})
+        holdout_predictions[t(model_def.label_key)] = pd.DataFrame({"observed": y_test.to_numpy(), "predicted": predictions})
 
         feature_importance = extract_feature_importance(pipeline)
         if feature_importance is not None and not feature_importance.empty:
-            model_details[model_def.label] = feature_importance.head(15)
+            model_details[t(model_def.label_key)] = feature_importance.head(15)
 
     for failure in failures:
         st.warning(failure)
@@ -113,7 +113,7 @@ def render():
         return
 
     results_df = pd.DataFrame(results).sort_values(t("modeling.col.cv_mean"), ascending=False)
-    st.dataframe(results_df, width="stretch")
+    st.dataframe(results_df, use_container_width=True)
 
     best_row = results_df.iloc[0]
     c1, c2 = st.columns(2)
@@ -134,8 +134,8 @@ def render():
         lim_min = min(pred_df["observed"].min(), pred_df["predicted"].min())
         lim_max = max(pred_df["observed"].max(), pred_df["predicted"].max())
         ax_pred.plot([lim_min, lim_max], [lim_min, lim_max], linestyle="--", color="#b91c1c", linewidth=1.5)
-        ax_pred.set_xlabel("observed")
-        ax_pred.set_ylabel("predicted")
+        ax_pred.set_xlabel(t("modeling.chart.observed"))
+        ax_pred.set_ylabel(t("modeling.chart.predicted"))
         ax_pred.set_title(chosen)
         st.pyplot(fig_pred)
         plt.close(fig_pred)
@@ -146,7 +146,7 @@ def render():
         st.markdown(f"#### {t('modeling.importance_title')}")
         detail_model = st.selectbox(t("modeling.importance_select"), options=list(model_details.keys()))
         importance_df = model_details[detail_model]
-        st.dataframe(importance_df, width="stretch")
+        st.dataframe(importance_df, use_container_width=True)
 
         fig_imp, ax_imp = plt.subplots(figsize=(8, max(3, 0.35 * len(importance_df))))
         sns.barplot(
@@ -159,7 +159,7 @@ def render():
             ax=ax_imp,
         )
         ax_imp.set_title(t("modeling.importance_chart_title", n=len(importance_df)))
-        ax_imp.set_xlabel("importance")
+        ax_imp.set_xlabel(t("modeling.chart.importance"))
         ax_imp.set_ylabel("")
         st.pyplot(fig_imp)
         plt.close(fig_imp)
