@@ -110,7 +110,7 @@ def render():
 
         if cat_cols:
             st.markdown(f"##### {t('eda.quality.cat_title')}")
-            default_cat = "Época" if "Época" in cat_cols else cat_cols[0]
+            default_cat = next((c for c in ("Season", "Época") if c in cat_cols), cat_cols[0])
             cat_col = st.selectbox(
                 t("eda.quality.cat_select"),
                 options=cat_cols,
@@ -302,7 +302,7 @@ def render():
                 key="eda_temporal_var",
             )
             hue_options = [none_label] + cat_cols
-            default_hue = "Cultura" if "Cultura" in cat_cols else none_label
+            default_hue = next((c for c in ("Crop_Type", "Cultura") if c in cat_cols), none_label)
             hue_col = st.selectbox(
                 t("eda.temporal.hue"),
                 options=hue_options,
@@ -340,7 +340,7 @@ def render():
         if not cat_cols:
             st.info(t("eda.composition.no_cat"))
         else:
-            default_cat = "Cultura" if "Cultura" in cat_cols else cat_cols[0]
+            default_cat = next((c for c in ("Crop_Type", "Cultura") if c in cat_cols), cat_cols[0])
             comp_col = st.selectbox(
                 t("eda.composition.col"),
                 options=cat_cols,
@@ -376,7 +376,7 @@ def render():
             if not cat_cols:
                 st.info(t("eda.inference.no_cat"))
             else:
-                default_group = "Época" if "Época" in cat_cols else cat_cols[0]
+                default_group = next((c for c in ("Season", "Época") if c in cat_cols), cat_cols[0])
                 group_col = st.selectbox(
                     t("eda.inference.group"),
                     options=cat_cols,
@@ -526,7 +526,7 @@ def render():
         if not cat_cols:
             st.info(t("eda.hotspots.no_cat"))
         else:
-            default_group = "Fazenda" if "Fazenda" in cat_cols else cat_cols[0]
+            default_group = next((c for c in ("Coll_Cluster", "Fazenda") if c in cat_cols), cat_cols[0])
             group_col = st.selectbox(
                 t("eda.hotspots.group"),
                 options=cat_cols,

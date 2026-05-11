@@ -36,11 +36,14 @@ fluxo de GEE com câmara pode ser analisada.
    detecção de sentinelas como −9999, validação de Lat/Lon dentro de
    [-90,90]/[-180,180]). Colunas ausentes não bloqueiam o uso — apenas
    desabilitam funcionalidades específicas.
-2. **Pipeline** — Seis filtros configuráveis com relatório transparente de
+2. **Pipeline** — Sete filtros configuráveis com relatório transparente de
    etapas: remoção de variáveis, filtro diagnóstico, limiar de R²,
-   outliers por quantis (com agrupamento opcional), **limpeza sazonal
-   robusta Q10–Q90** (por gás, por estação, com fator de cerca
-   ajustável) e agregação de réplicas (média/mediana).
+   **filtro por limiar customizado (CV ou qualquer outra variável de
+   qualidade)** — recomendado quando o fluxo se aproxima de zero e o R²
+   deixa de ser informativo; aceita qualquer coluna numérica nos sentidos
+   `≥` ou `≤` —, outliers por quantis (com agrupamento opcional),
+   **limpeza sazonal robusta Q10–Q90** (por gás, por estação, com fator
+   de cerca ajustável) e agregação de réplicas (média/mediana).
 3. **EDA** — Doze abas: resumo estatístico, qualidade dos dados,
    distribuições univariadas, boxplots/violins, matriz de dispersão,
    **correlação Pearson / Spearman / Kendall**, mapa espacial, série

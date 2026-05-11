@@ -33,7 +33,12 @@ class ColumnSpec:
     notes: str = ""
 
 
-# Schema de referência baseado nos exports LI-COR LI-7810SC + Smart Chamber.
+# Schema de referência baseado nos exports tabulares dos LI-COR portable trace
+# gas analyzers (CH4/CO2 com Smart Chamber e N2O). Cada tupla `candidates`
+# lista nomes alternativos aceitos para a mesma coluna; o primeiro encontrado
+# no dataframe é usado. Por convenção, os aliases em inglês ficam primeiro
+# (alinhados ao paper) e os aliases originais em português permanecem como
+# fallback para retrocompatibilidade com o dataset Goiás Verde.
 SCHEMA_SPECS: tuple[ColumnSpec, ...] = (
     ColumnSpec(
         ("FCO2_DRY", "CO2_Flux"),
@@ -54,7 +59,7 @@ SCHEMA_SPECS: tuple[ColumnSpec, ...] = (
         "Fluxo de N₂O",
         tier="optional",
         expected_type="numeric",
-        feature="EDA estendida (LI-7820)",
+        feature="EDA estendida (N2O analyzer)",
     ),
     ColumnSpec(
         ("TS_2 initial_value", "Soil_Temp", "TS"),
@@ -120,21 +125,21 @@ SCHEMA_SPECS: tuple[ColumnSpec, ...] = (
         feature="Série Temporal, Comparativa horária",
     ),
     ColumnSpec(
-        ("Cultura", "Crop_Type", "cultura"),
+        ("Crop_Type", "Cultura", "cultura"),
         "Cultura ou tipo de uso",
         tier="recommended",
         expected_type="categorical",
         feature="EDA, Comparativa, Modelagem",
     ),
     ColumnSpec(
-        ("Fazenda", "Coll_Cluster", "fazenda"),
+        ("Coll_Cluster", "Fazenda", "fazenda"),
         "Fazenda / cluster",
         tier="optional",
         expected_type="categorical",
         feature="EDA, Hotspots ranking",
     ),
     ColumnSpec(
-        ("Estação", "Época", "Season", "Estacao"),
+        ("Season", "Estação", "Época", "Estacao"),
         "Estação do ano",
         tier="optional",
         expected_type="categorical",

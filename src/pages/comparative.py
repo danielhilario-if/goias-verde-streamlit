@@ -272,7 +272,7 @@ def render() -> None:
     st.markdown(f"#### {t('comparative.config.title')}")
     st.caption(t("comparative.config.caption"))
 
-    default_group_col = next((c for c in ("Cultura", "Crop_Type", "cultura") if c in cat_cols), cat_cols[0])
+    default_group_col = next((c for c in ("Crop_Type", "Cultura", "cultura") if c in cat_cols), cat_cols[0])
     group_col = st.selectbox(
         t("comparative.config.group_col"),
         options=cat_cols,

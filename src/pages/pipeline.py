@@ -13,11 +13,13 @@ from src.config.settings import (
     PIPELINE_R2_CH4_CANDIDATES,
     PIPELINE_R2_CO2_CANDIDATES,
     PIPELINE_REP_CANDIDATES,
+    PIPELINE_THRESHOLD_CANDIDATES,
 )
 from src.i18n import t, translate_step
 from src.pipeline import (
     apply_diagnostic_filter,
     apply_r2_threshold,
+    apply_threshold_filter,
     aggregate_reps,
     apply_seasonal_q10_q90,
     build_step_report,
@@ -77,6 +79,32 @@ def render():
         st.markdown(f"### {t('pipeline.section.r2')}")
         use_r2 = st.checkbox(t("pipeline.r2.checkbox"), value=True)
         r2_threshold = st.slider(t("pipeline.r2.slider"), 0.0, 1.0, 0.80, 0.01)
+
+        st.markdown(f"### {t('pipeline.section.threshold')}")
+        st.caption(t("pipeline.threshold.caption"))
+        use_threshold = st.checkbox(t("pipeline.threshold.checkbox"), value=False)
+        numeric_cols_pre = list(df_raw.select_dtypes(include="number").columns)
+        threshold_default_cols = [c for c in PIPELINE_THRESHOLD_CANDIDATES if c in numeric_cols_pre]
+        threshold_columns = st.multiselect(
+            t("pipeline.threshold.columns"),
+            options=numeric_cols_pre,
+            default=threshold_default_cols,
+            help=t("pipeline.threshold.help"),
+        )
+        threshold_direction_options = [t("pipeline.threshold.dir.ge"), t("pipeline.threshold.dir.le")]
+        threshold_direction_label = st.radio(
+            t("pipeline.threshold.direction"),
+            options=threshold_direction_options,
+            horizontal=True,
+            index=1,
+        )
+        threshold_direction = "le" if threshold_direction_label == t("pipeline.threshold.dir.le") else "ge"
+        threshold_value = st.number_input(
+            t("pipeline.threshold.value"),
+            value=0.20,
+            step=0.05,
+            format="%.4f",
+        )
 
         st.markdown(f"### {t('pipeline.section.outliers')}")
         use_out = st.checkbox(t("pipeline.out.checkbox"), value=True)
@@ -156,6 +184,19 @@ def render():
                 co2_candidates=PIPELINE_R2_CO2_CANDIDATES,
             )
             logs.append(log_item)
+
+        if use_threshold:
+            valid_threshold_cols = [c for c in threshold_columns if c in df.columns]
+            if threshold_columns and not valid_threshold_cols:
+                warnings.append(t("pipeline.warn_threshold_no_cols"))
+            if valid_threshold_cols:
+                df, log_item = apply_threshold_filter(
+                    df,
+                    columns=valid_threshold_cols,
+                    threshold=float(threshold_value),
+                    direction=threshold_direction,
+                )
+                logs.append(log_item)
 
         if use_out:
             valid_outlier_columns = [column for column in outlier_columns if column in df.columns]

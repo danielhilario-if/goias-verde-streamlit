@@ -53,6 +53,9 @@ NAVIGATION_ITEMS = [
 ]
 
 PIPELINE_DROP_CANDIDATES = [
+    "Soil_Texture",
+    "Land_Use",
+    "Management",
     "Textura",
     "Uso atual",
     "Manejo",
@@ -64,8 +67,16 @@ PIPELINE_DROP_CANDIDATES = [
 PIPELINE_DIAGNOSTIC_CANDIDATES = ["Diagnostic Initial_value", "DIAGNOSTIC initial_value"]
 PIPELINE_R2_CH4_CANDIDATES = ["FCH4_DRY LIN_R2", "FCH4_DRY R2"]
 PIPELINE_R2_CO2_CANDIDATES = ["FCO2_DRY R2", "FCO2_DRY LIN_R2"]
+PIPELINE_THRESHOLD_CANDIDATES = [
+    "FCO2_DRY CV",
+    "FCH4_DRY CV",
+    "FN2O CV",
+    "CO2_CV",
+    "CH4_CV",
+    "N2O_CV",
+]
 PIPELINE_REP_CANDIDATES = ["REP", "Rep"]
-PIPELINE_GROUP_CANDIDATES = ["ID", "Fazenda", "Cultura", "Época", "Data", "Date", "Ponto"]
+PIPELINE_GROUP_CANDIDATES = ["ID", "Coll_Cluster", "Crop_Type", "Season", "Fazenda", "Cultura", "Época", "Date", "Data", "Ponto"]
 
 EDA_DEFAULT_DISTRIBUTION_COLUMNS = ["FCO2_DRY", "FCH4_DRY", "TS_2 initial_value", "SWC_2 initial_value"]
 EDA_DEFAULT_PAIR_COLUMNS = ["TS_2 initial_value", "SWC_2 initial_value", "FCO2_DRY", "FCH4_DRY"]
@@ -77,6 +88,9 @@ REGRESSION_PRESETS = [
 ]
 
 MODEL_DEFAULT_FEATURES = [
+    "Coll_Cluster",
+    "Crop_Type",
+    "Season",
     "Fazenda",
     "Cultura",
     "Época",

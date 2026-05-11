@@ -37,8 +37,11 @@ de flujo de GEI con cámara puede ser analizada.
    detección de centinelas como −9999, validación de Lat/Lon dentro de
    [-90,90]/[-180,180]). Las columnas ausentes no bloquean el uso —
    simplemente desactivan funcionalidades específicas.
-2. **Pipeline** — Seis filtros configurables con reporte transparente de
+2. **Pipeline** — Siete filtros configurables con reporte transparente de
    etapas: remoción de variables, filtro diagnóstico, umbral de R²,
+   **filtro por umbral personalizado (CV u otra variable de calidad)** —
+   recomendado cuando el flujo se aproxima de cero y el R² deja de ser
+   informativo; admite cualquier columna numérica en sentido `≥` o `≤` —,
    outliers por cuantiles (con agrupamiento opcional), **limpieza
    estacional robusta Q10–Q90** (por gas, por estación, con factor de
    cerco ajustable) y agregación de réplicas (media/mediana).

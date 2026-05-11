@@ -37,11 +37,13 @@ campaign can be analysed.
    values such as -9999, and verifies that latitude/longitude are within
    plausible ranges. Missing columns never block the upload — they simply
    disable the dependent features.
-2. **Pipeline** — Six configurable filters with a transparent step-by-step
+2. **Pipeline** — Seven configurable filters with a transparent step-by-step
    report: variable removal, diagnostic-flag filter, R² threshold,
-   per-group quantile outliers, **robust seasonal Q10–Q90 cleaning** (per
-   gas, per season, with a tunable fence factor), and replicate
-   aggregation (mean/median).
+   **user-defined CV/quality threshold filter** (use `≤` on the coefficient
+   of variation when fluxes approach zero and R² is no longer informative;
+   accepts any numeric column with either `≥` or `≤`), per-group quantile
+   outliers, **robust seasonal Q10–Q90 cleaning** (per gas, per season,
+   with a tunable fence factor), and replicate aggregation (mean/median).
 3. **EDA** — Twelve tabs: statistical summary, data quality, univariate
    distributions, boxplots/violins, scatter matrix, **correlation heatmap
    (Pearson / Spearman / Kendall)**, spatial map, time-series of fluxes,

@@ -44,7 +44,7 @@ authentication to `src.auth` when enabled.
 | Page              | Module                         | Purpose                                                                       |
 | ----------------- | ------------------------------ | ----------------------------------------------------------------------------- |
 | Upload            | `pages/upload.py`              | File ingestion, schema validation, in-memory caching                          |
-| Pipeline          | `pages/pipeline.py`            | Configurable cleaning steps (drop, diagnostic, R², outliers, Q10–Q90, REP)    |
+| Pipeline          | `pages/pipeline.py`            | Configurable cleaning steps (drop, diagnostic, R², CV/threshold, outliers, Q10–Q90, REP) |
 | EDA               | `pages/eda.py`                 | 12 tabs: descriptives, quality, distributions, boxplots, scatter, correlation, spatial, temporal, composition, inference, hotspots, outliers |
 | Regression        | `pages/regression.py`          | Bivariate presets + free regression                                           |
 | Modeling          | `pages/modeling.py`            | Holdout + CV comparison of five sklearn estimators                            |
@@ -78,14 +78,15 @@ Each filter is a pure function returning `(DataFrame, StepLog)`. Pipeline UI
 calls them in sequence and concatenates the logs with `build_step_report` for
 the transparent step-by-step report.
 
-| Function                   | Step                                                                        |
-| -------------------------- | --------------------------------------------------------------------------- |
-| `remove_columns`           | Drop manufacturer-redundant columns                                         |
-| `apply_diagnostic_filter`  | Keep `Diagnostic == 0`                                                      |
-| `apply_r2_threshold`       | Drop rows with low linear-fit R² for CO₂/CH₄                                |
-| `filter_outliers_quantile` | Per-group quantile-based outlier removal                                    |
-| `apply_seasonal_q10_q90`   | Robust seasonal Q10–Q90 cleaning per gas, per season, with tunable fence    |
-| `aggregate_reps`           | Collapse field replicates into one row per sampling point (mean/median)     |
+| Function                   | Step                                                                                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `remove_columns`           | Drop manufacturer-redundant columns                                                                                                                   |
+| `apply_diagnostic_filter`  | Keep `Diagnostic == 0`                                                                                                                                |
+| `apply_r2_threshold`       | Drop rows with low linear-fit R² for CO₂/CH₄                                                                                                          |
+| `apply_threshold_filter`   | Generic `≥`/`≤` filter on any numeric quality column (e.g. **CV of CO₂/CH₄/N₂O**); recommended over R² when fluxes are near zero (R² collapses, CV stays informative) |
+| `filter_outliers_quantile` | Per-group quantile-based outlier removal                                                                                                              |
+| `apply_seasonal_q10_q90`   | Robust seasonal Q10–Q90 cleaning per gas, per season, with tunable fence                                                                              |
+| `aggregate_reps`           | Collapse field replicates into one row per sampling point (mean/median)                                                                               |
 
 ## Schema validator (`src/schema.py`)
 

@@ -32,6 +32,9 @@ The application looks for each canonical column under one or more candidate name
 | Diagnostic flag         | `DIAGNOSTIC initial_value`, `Diagnostic Initial_value`, `DIAG initial_value` | recommended | Pipeline (diagnostic filter)                                                             |
 | R² of the CO₂ fit       | `FCO2_DRY R2`, `FCO2_DRY LIN_R2`                          | recommended | Pipeline (R² threshold filter)                                                           |
 | R² of the CH₄ fit       | `FCH4_DRY LIN_R2`, `FCH4_DRY R2`                          | optional    | Pipeline (R² threshold filter)                                                           |
+| CV of the CO₂ flux      | `FCO2_DRY CV`, `CO2_CV`                                   | optional    | Pipeline (custom threshold filter — preferred over R² when fluxes are near zero)         |
+| CV of the CH₄ flux      | `FCH4_DRY CV`, `CH4_CV`                                   | optional    | Pipeline (custom threshold filter)                                                       |
+| CV of the N₂O flux      | `FN2O CV`, `N2O_CV`                                       | optional    | Pipeline (custom threshold filter)                                                       |
 | Replicate index         | `REP`, `Rep`                                              | optional    | Pipeline (replicate aggregation)                                                         |
 
 ### Datetime columns
@@ -44,9 +47,9 @@ The application looks for each canonical column under one or more candidate name
 
 | Canonical name | Candidates                              | Tier        | Dependent features                                              |
 |---|---|---|---|
-| Crop or land use      | `Cultura`, `Crop_Type`, `cultura`        | recommended | EDA, Two-group comparison, Modeling                             |
-| Farm / cluster        | `Fazenda`, `Coll_Cluster`, `fazenda`     | optional    | EDA, Hotspots ranking                                           |
-| Season                | `Estação`, `Época`, `Season`, `Estacao`  | optional    | Pipeline Q10–Q90 fence, EDA Inference, Spatial faceting          |
+| Crop or land use      | `Crop_Type`, `Cultura`, `cultura`        | recommended | EDA, Two-group comparison, Modeling                             |
+| Farm / cluster        | `Coll_Cluster`, `Fazenda`, `fazenda`     | optional    | EDA, Hotspots ranking                                           |
+| Season                | `Season`, `Estação`, `Época`, `Estacao`  | optional    | Pipeline Q10–Q90 fence, EDA Inference, Spatial faceting          |
 
 ## Validation logic
 

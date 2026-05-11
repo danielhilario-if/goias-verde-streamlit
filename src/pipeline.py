@@ -103,6 +103,45 @@ def apply_r2_threshold(
     return out, StepLog(step=label, before=before, after=len(out))
 
 
+def apply_threshold_filter(
+    df: pd.DataFrame,
+    columns: Iterable[str],
+    threshold: float,
+    direction: str = "ge",
+) -> tuple[pd.DataFrame, StepLog]:
+    """Filtra linhas por um limiar aplicado a uma ou mais colunas numericas.
+
+    ``direction`` controla o sentido do filtro:
+
+    * ``"ge"`` (default) mantem linhas com ``valor >= threshold`` em todas as
+      colunas selecionadas (uso tipico: R^2 do ajuste linear).
+    * ``"le"`` mantem linhas com ``valor <= threshold`` em todas as colunas
+      selecionadas (uso tipico: coeficiente de variacao, CV, especialmente
+      quando o fluxo se aproxima de zero e o R^2 deixa de ser informativo).
+
+    Valores NaN sao tratados como ``False`` (a linha e removida).
+    """
+    before = len(df)
+    out = df.copy()
+
+    valid_cols = [c for c in columns if c in out.columns]
+    if not valid_cols:
+        return out, StepLog(step="Filtro por limiar ignorado (sem colunas validas)", before=before, after=before)
+
+    op = "<=" if direction == "le" else ">="
+    mask = pd.Series(True, index=out.index)
+    for col in valid_cols:
+        series = pd.to_numeric(out[col], errors="coerce")
+        if direction == "le":
+            mask &= (series <= threshold) & series.notna()
+        else:
+            mask &= (series >= threshold) & series.notna()
+
+    out = out[mask].copy()
+    label = f"Filtro por limiar ({', '.join(valid_cols)} {op} {threshold:.4g})"
+    return out, StepLog(step=label, before=before, after=len(out))
+
+
 def aggregate_reps(
     df: pd.DataFrame,
     rep_col: str,

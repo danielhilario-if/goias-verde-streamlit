@@ -15,6 +15,7 @@ from src.pipeline import (
     aggregate_reps,
     apply_diagnostic_filter,
     apply_r2_threshold,
+    apply_threshold_filter,
     build_step_report,
     filter_outliers_quantile,
     find_first_existing,
@@ -92,6 +93,42 @@ class TestApplyR2Threshold:
     def test_no_r2_columns_passthrough(self):
         df = _make_df(val=[1, 2, 3])
         out, log = apply_r2_threshold(df, 0.8, ["MISSING_R2"], [])
+        assert len(out) == 3
+        assert "sem colunas" in log.step
+
+
+# ─── apply_threshold_filter ───────────────────────────────────────────────────
+
+class TestApplyThresholdFilter:
+    def test_ge_keeps_high_quality(self):
+        df = _make_df(R2=[0.95, 0.60, 0.85], val=[1, 2, 3])
+        out, log = apply_threshold_filter(df, ["R2"], threshold=0.80, direction="ge")
+        assert len(out) == 2
+        assert 0.60 not in out["R2"].values
+        assert ">=" in log.step
+
+    def test_le_keeps_low_cv(self):
+        df = _make_df(CV=[0.05, 0.40, 0.15], val=[1, 2, 3])
+        out, log = apply_threshold_filter(df, ["CV"], threshold=0.20, direction="le")
+        assert len(out) == 2
+        assert 0.40 not in out["CV"].values
+        assert "<=" in log.step
+
+    def test_multi_column_and_logic(self):
+        df = _make_df(CV_CO2=[0.10, 0.30, 0.05], CV_CH4=[0.08, 0.10, 0.50])
+        out, _ = apply_threshold_filter(df, ["CV_CO2", "CV_CH4"], threshold=0.20, direction="le")
+        assert len(out) == 1
+        assert out.iloc[0]["CV_CO2"] == 0.10
+
+    def test_nan_rows_are_removed(self):
+        df = _make_df(CV=[0.05, float("nan"), 0.10])
+        out, _ = apply_threshold_filter(df, ["CV"], threshold=0.20, direction="le")
+        assert len(out) == 2
+        assert out["CV"].notna().all()
+
+    def test_missing_columns_passthrough(self):
+        df = _make_df(val=[1, 2, 3])
+        out, log = apply_threshold_filter(df, ["MISSING"], threshold=0.5, direction="le")
         assert len(out) == 3
         assert "sem colunas" in log.step
 
